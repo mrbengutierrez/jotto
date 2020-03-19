@@ -27,15 +27,13 @@ class Jotto:
         for word in scrabbleWords:
             if Jotto.isJottoWord(word):
                 jottoWords.append(word)
-        return jottoWords
+        return set(jottoWords)
 
     def keepWordsOfLength(self, wordLength):
         """ Keeps all jotto words of a certain word length
             Modifies the jotto word list
-
             Parameters:
             wordLength (int): length of word, must be >0
-
             Returns:
             None
         """
@@ -49,12 +47,10 @@ class Jotto:
     def pickWord(self, word, numMatches):
         """ Shrinks self.words such as to only keep words that
             could possibly have the number of letter matches given
-
             Parameters:
             word (string): word to shrink
             numMatches (int): number of letter matches
                               ( 0 <= nuMatches <= len(word) )
-
             Returns:
             None
         """
@@ -95,9 +91,7 @@ class Jotto:
     def playGame(self):
         """ Run this function to play the game """
         print("Welcome to jotto AI")
-        print("How many letters is jotto word: ")
-        numLetters = int( input() )
-        self.keepWordsOfLength(numLetters)
+        self.getNumberOfLetters()
 
         print("")
         print('When game is over, type "game over"')
@@ -124,14 +118,19 @@ class Jotto:
         print("How many matches: " )
         try:
             userInput = input()
+
+            if userInput == "remaining":
+                print("Remaining words")
+                print(self.words)
+                return self.getNumberOfMatches()
             
             if userInput == "game over":
                 return userInput
             numMatches = int(userInput)
             return numMatches
         except (IOError, ValueError) as e:
-            print('That did not work. Please enter a number between 0 and ' + str(len(self.wordLength)) + 'or type "game over".')
-            self.getNumberOfMatches()
+            print('That did not work. Please enter a number between 0 and ' + str(self.wordLength) + 'or type "game over".')
+            return self.getNumberOfMatches()
             
                   
                   
@@ -170,12 +169,10 @@ class Jotto:
     def isCombinationInWord(letterCombination, word):
         """ Returns true if a validjotto letter combination is contained in
             a valid jotto word, else returns False
-
             Parameters:
             letterCombination (list): a list of characters representing a letter combination.
                                         all characters must be unique
             word (string): the word. all characters must be unique
-
             Returns:
             (bool): True if all letters of letterCombination are contained in word
         """
@@ -199,7 +196,6 @@ class Jotto:
     @staticmethod
     def _getLetterCombinationsHelper(inputArray, pos, charList, letterCombinations):
         """ Recursively computes the letter combinations for a sorted array of letters
-
             Parameters:
             inputArray (list): sorted array of letters
             pos (int): integer specifing current position in charList.
@@ -239,10 +235,8 @@ class Jotto:
     @staticmethod
     def wordToSet(word):
         """Converts a word to a set of lettters in the word
-
             Parameters:
             word (string): word to be converted
-
             Returns:
             (set): set of letters in word
         """
