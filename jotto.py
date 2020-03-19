@@ -4,10 +4,15 @@ Author: Benjamin Gutierrez
 Date: 3/19/2020
 """
 
+
+import random
+
+
 class Jotto:
     def __init__(self):
         # keeps track of the remaining jotto words
         self.words = Jotto.getJottoWords()
+        self.wordLength = None
 
     @staticmethod
     def getJottoWords():
@@ -16,7 +21,8 @@ class Jotto:
         fileHandle = open(filename, "r") # open filename read only
         scrabbleWords = []
         for line in fileHandle:
-            scrabbleWords.append(line)
+            word = line.strip()
+            scrabbleWords.append(word)
         jottoWords = []
         for word in scrabbleWords:
             if Jotto.isJottoWord(word):
@@ -40,7 +46,7 @@ class Jotto:
         self.words = newWords
         return
 
-    def pickWord(word, numMatches):
+    def pickWord(self, word, numMatches):
         """ Shrinks self.words such as to only keep words that
             could possibly have the number of letter matches given
 
@@ -67,19 +73,101 @@ class Jotto:
             return
 
         #else there are some matches
-        allLetterCombinations = getLetterCombinations(word)
+        allLetterCombinations = Jotto.getLetterCombinations(word)
 
         # only keep letter combinations that are of length of number of matches
         letterCombinations = []
         for letterCombination in allLetterCombinations: 
             if len(letterCombination) == numMatches:
                 letterCombinations.append(letterCombination)
+
+        # check if there is a letter combination in word
+        newWords = []
+        for currentWord in self.words:
+            for letterCombination in letterCombinations:
+                if Jotto.isCombinationInWord(letterCombination, currentWord):
+                    newWords.append(currentWord)
+                    break
+        self.words = newWords
+        return
+
+    
+    def playGame(self):
+        """ Run this function to play the game """
+        print("Welcome to jotto AI")
+        print("How many letters is jotto word: ")
+        numLetters = int( input() )
+        self.keepWordsOfLength(numLetters)
+
+        print("")
+        print('When game is over, type "game over"')
+        gameOver = False
+        numMoves = 0
+        while (gameOver == False):
+            guess = random.choice(self.words)
+            print("")
+            print("Guess the word: " + guess)
+            numMatches = self.getNumberOfMatches()
+            if numMatches == "game over":
+                gameOver = True
+                break
+            self.pickWord(guess, numMatches)
+            numMoves += 1
+            print("Words left: " + str(len(self.words)))
+        print("Congratulations. Total moves: " + str(numMoves))
+        
+        
+                
+                
+    def getNumberOfMatches(self):
+        """ Helper function for playGame """
+        print("How many matches: " )
+        try:
+            userInput = input()
+            
+            if userInput == "game over":
+                return userInput
+            numMatches = int(userInput)
+            return numMatches
+        except (IOError, ValueError) as e:
+            print('That did not work. Please enter a number between 0 and ' + str(len(self.wordLength)) + 'or type "game over".')
+            self.getNumberOfMatches()
+            
+                  
+                  
+
+
+       
+
+
+    def getNumberOfLetters(self):
+        """ Helper function for playGame """
+        print("How many letters is jotto word: ")
+        try:
+            numLetters = int( input() )
+            
+            minLetters = 2
+            maxLetters = 15
+            if minLetters <= numLetters and numLetters <= maxLetters:
+                self.keepWordsOfLength(numLetters)
+                self.wordLength = numLetters
+                return
+            else:
+                raise IOError
+        except (IOError, ValueError) as e:
+            print("That did not work. Please enter a number between 2 and 15")
+            self.getNumberOfLetters()
+        
+        
+
+    
+                
                 
             
         
 
     @staticmethod
-    def ifCombinationInWord(letterCombination, word):
+    def isCombinationInWord(letterCombination, word):
         """ Returns true if a validjotto letter combination is contained in
             a valid jotto word, else returns False
 
@@ -96,6 +184,7 @@ class Jotto:
         if letterCombinationSet.issubset(letterSet):
             return True
         return False
+                  
         
         
             
@@ -131,7 +220,6 @@ class Jotto:
             if (i != pos and inputArray[i] == inputArray[i-1]):
                 continue
             charList.append(inputArray[i])
-            print(charList)
             letterCombinations.append(charList.copy())
             Jotto._getLetterCombinationsHelper(inputArray, i+1,charList, letterCombinations)
             del charList[-1]
@@ -172,6 +260,8 @@ class Jotto:
 
 def main():
     J = Jotto()
+    J.playGame()
+                  
     
     
 
