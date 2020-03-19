@@ -12,6 +12,7 @@ class Jotto:
     def __init__(self):
         # keeps track of the remaining jotto words
         self.words = Jotto.getJottoWords()
+        self.allWords = self.words
         self.wordLength = None
 
     @staticmethod
@@ -22,6 +23,7 @@ class Jotto:
         scrabbleWords = []
         for line in fileHandle:
             word = line.strip()
+            word = word.lower()
             scrabbleWords.append(word)
         jottoWords = []
         for word in scrabbleWords:
@@ -94,23 +96,43 @@ class Jotto:
         self.getNumberOfLetters()
 
         print("")
+        print('If word is unknown, type "unknown"')
+        print('To print the remaining words, type "remaining"')
         print('When game is over, type "game over"')
         gameOver = False
         numMoves = 0
         while (gameOver == False):
             guess = self.words.pop()
+            
             print("")
             print("Guess the word: " + guess)
             numMatches = self.getNumberOfMatches()
+
+            if type(numMatches) == list and numMatches[0] == "guess":
+                self.words.add(guess)
+                userGuess = numMatches[1]
+                if len(userGuess) == self.wordLength and userGuess in self.allWords:
+                    guess = userGuess
+                    numMatches = self.getNumberOfMatches()
+                else:
+                    print("Invalid guess")
+                    continue
+                
+            if numMatches == "unknown":
+                numMoves += 1
+                continue
+                
             if numMatches == "game over":
                 gameOver = True
                 break
+            
             self.pickWord(guess, numMatches)
+            self.words.discard(guess)
             numMoves += 1
             if len(self.words) == 0:
                 gameOver = True
                 break
-
+            
             
             print("Words left: " + str(len(self.words)))
         print("Congratulations. Total moves: " + str(numMoves))
@@ -128,6 +150,12 @@ class Jotto:
                 print("Remaining words")
                 print(self.words)
                 return self.getNumberOfMatches()
+
+            if type(userInput) == str and len(userInput) >= 5 and userInput[0:5] == "guess":
+                return userInput.split()
+            
+            if userInput == "unknown":
+                return userInput
             
             if userInput == "game over":
                 return userInput
