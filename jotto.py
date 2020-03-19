@@ -5,7 +5,7 @@ Date: 3/19/2020
 """
 
 
-import random
+
 
 
 class Jotto:
@@ -41,7 +41,7 @@ class Jotto:
         for word in self.words:
             if len(word) == wordLength:
                 newWords.append(word)
-        self.words = newWords
+        self.words = set(newWords)
         return
 
     def pickWord(self, word, numMatches):
@@ -62,10 +62,10 @@ class Jotto:
         if numMatches == 0:
             newWords = []
             for currentWord in self.words:
-                for letter in currentWord:
-                    if letter not in letters:
-                        newWords.append(currentWord)
-            self.words = newWords
+                currentLetters = Jotto.wordToSet(currentWord)
+                if currentLetters.intersection(letters) == set():
+                    newWords.append(currentWord)
+            self.words = set(newWords)
             return
 
         #else there are some matches
@@ -84,7 +84,7 @@ class Jotto:
                 if Jotto.isCombinationInWord(letterCombination, currentWord):
                     newWords.append(currentWord)
                     break
-        self.words = newWords
+        self.words = set(newWords)
         return
 
     
@@ -98,7 +98,7 @@ class Jotto:
         gameOver = False
         numMoves = 0
         while (gameOver == False):
-            guess = random.choice(self.words)
+            guess = self.words.pop()
             print("")
             print("Guess the word: " + guess)
             numMatches = self.getNumberOfMatches()
@@ -107,6 +107,11 @@ class Jotto:
                 break
             self.pickWord(guess, numMatches)
             numMoves += 1
+            if len(self.words) == 0:
+                gameOver = True
+                break
+
+            
             print("Words left: " + str(len(self.words)))
         print("Congratulations. Total moves: " + str(numMoves))
         
@@ -127,7 +132,12 @@ class Jotto:
             if userInput == "game over":
                 return userInput
             numMatches = int(userInput)
-            return numMatches
+            minMatches = 0
+            maxMatches = self.wordLength
+            if minMatches <= numMatches and numMatches <= maxMatches:     
+                return numMatches
+            else:
+                raise IOError
         except (IOError, ValueError) as e:
             print('That did not work. Please enter a number between 0 and ' + str(self.wordLength) + 'or type "game over".')
             return self.getNumberOfMatches()
