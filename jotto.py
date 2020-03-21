@@ -14,6 +14,9 @@ class Jotto:
         self.words = Jotto.getJottoWords()
         self.allWords = self.words
         self.wordLength = None
+        self.keptLetters = set()
+        self.removedLetters = set()
+        self.guesses = [] # [(guess1,numMatches1),...]
 
     @staticmethod
     def getJottoWords():
@@ -87,7 +90,98 @@ class Jotto:
                     newWords.append(currentWord)
                     break
         self.words = set(newWords)
+
+        #-----
+        # By this point we have kept all words that have a combination of valid letters
+        # now see if we can remove words by seeing if there are any letters
+        # we can figure out
+        self.guesses.append( (word, numMatches) )
+        self.trimLetters()
         return
+
+    def updateKeptRemovedLetters(self):
+        """ updates self.keptLetters and self.removedLetters """
+        alphabetString = "abcdefghijklmnopqrstuvwxyz"
+        alphabet = Jotto.wordToSet(alphabetString)
+
+        self.removedLetters = set(alphabet)
+        self.keptLetters = set(alphabet)
+        for letter in alphabet:
+            for word in self.words:
+                if letter in word:
+                    self.removedLetters.discard(letter)
+                else: # letter not in word
+                    self.keptLetters.discard(letter)
+        return None
+
+    def trimLetters(self):
+        """ Find letters that are either in or not in all remaining words """
+        self.updateKeptRemovedLetters()
+
+        for (guess, numMatches) in self.guesses:
+            lettersInGuess = Jotto.wordToSet(guess)
+
+            # letters than are known to be kept
+            lettersMatching = lettersInGuess.intersection(self.keptLetters)
+            numLettersMatching = len(lettersMatching)
+            
+            # letters than are known to be removed
+            lettersNotMatching = lettersInGuess.intersection(self.removedLetters)
+            numLettersNotMatching = len(lettersNotMatching)
+
+            # if all letters are known to be matching, all other letters should be removed
+            if numLettersMatching == numMatches:
+                # remove remaining letters
+                lettersToRemove = lettersInGuess - lettersMatching
+                self.removeLetters(lettersToRemove)
+
+            if numLettersNotMatching == self.wordLength - numMatches:
+                lettersToKeep = lettersInGuess - lettersNotMatching
+                self.keepLetters(lettersToKeep)
+        return
+            
+
+    def removeLetters(self, lettersToRemove):
+        """ Removes words in self.words that have letters in lettersToRemove
+
+            Parameters:
+            lettersToRemove (set): set of 1 character strings that represent
+                                the letter to be removed from self.words
+
+            Returns:
+            None
+        """
+        newWords = set(self.words)
+        for word in self.words:
+            for letter in lettersToRemove:
+                if letter in word:
+                    newWords.discard(word)
+        self.words = set(newWords)
+        self.updateKeptRemovedLetters()
+        return
+
+    def keepLetters(self, lettersToKeep):
+        """ Only keeps words in self.words that have letters in lettersToKeep
+
+            Parameters:
+            lettersToRemove (set): set of 1 character strings that represent
+                                the letter to be keep from self.words
+
+            Returns:
+            None
+        """
+        newWords = set(self.words)
+        for word in self.words:
+            for letter in lettersToKeep:
+                if letter not in word:
+                    newWords.discard(word)     
+        self.words = set(newWords)
+        self.updateKeptRemovedLetters()
+        return
+        
+            
+            
+        
 
     
     def playGame(self):
@@ -112,7 +206,11 @@ class Jotto:
         """ Takes a guess, returns True if game is over, else returns False """
         
         if guess==None:
-            guess = self.words.pop()
+            try:
+                guess = self.words.pop()
+            except KeyError: # game over
+                return True
+                
             self.words.add(guess)
 
         print("")
@@ -128,7 +226,20 @@ class Jotto:
             else:
                 print("Invalid guess")
                 return self.takeGuess(guess)
-            
+
+        if type(numMatches) == list and numMatches[0] == "remove":
+            lettersToRemove = numMatches[1]
+            self.removeLetters(lettersToRemove)
+            return self.takeGuess()
+
+        if type(numMatches) == list and numMatches[0] == "keep":
+            lettersToKeep = numMatches[1]
+            self.keepLetters(lettersToKeep)
+            return self.takeGuess()
+
+        if numMatches == "new":
+            return self.takeGuess()
+        
         if numMatches == "unknown":
             self.words.discard(guess)
             return self.takeGuess()
@@ -138,7 +249,7 @@ class Jotto:
         
         self.pickWord(guess, numMatches)
         self.words.discard(guess)
-        if len(self.words) ==0:
+        if len(self.words) ==0: # game over
             return True
         
         return False
@@ -152,15 +263,43 @@ class Jotto:
         try:
             userInput = input()
 
-            if userInput == "remaining":
+            if userInput == "list":
                 print("Remaining words")
                 print(self.words)
                 return self.getNumberOfMatches()
 
+            if userInput == "remaining":
+                print("Keep letters: " + str(list(self.keptLetters)))
+                print("Remove letters: " + str(list(self.removedLetters)))
+                print("Words left: " + str(len(self.words)))
+                return self.getNumberOfMatches()
+
+
             if type(userInput) == str and len(userInput) >= 5 and userInput[0:5] == "guess":
                 return userInput.split()
+
+            if type(userInput) == str and len(userInput) >= 6 and userInput[0:6] == "remove":
+                splittedInput = userInput.split()
+                lettersToRemove = splittedInput[1]
+                if len(lettersToRemove) >= 26 - self.wordLength:
+                    print(lettersToRemove)
+                    raise IOError
+                return splittedInput
+
+            if type(userInput) == str and len(userInput) >= 4 and userInput[0:4] == "keep":
+                splittedInput = userInput.split()
+                lettersToKeep = splittedInput[1]
+                if len(lettersToKeep) > self.wordLength:
+                    raise IOError
+                return splittedInput
             
             if userInput == "unknown":
+                return userInput
+
+            if userInput == "count":
+                return userInput
+
+            if userInput == "new":
                 return userInput
             
             if userInput == "game over":
@@ -172,8 +311,8 @@ class Jotto:
                 return numMatches
             else:
                 raise IOError
-        except (IOError, ValueError) as e:
-            print('That did not work. Please enter a number between 0 and ' + str(self.wordLength) + 'or type "game over".')
+        except (IOError, ValueError, IndexError) as e:
+            print('That did not work. Please enter a number between 0 and ' + str(self.wordLength) + ' or type "game over".')
             return self.getNumberOfMatches()
             
                   
