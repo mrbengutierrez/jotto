@@ -12,11 +12,11 @@ class Jotto:
     def __init__(self):
         # keeps track of the remaining jotto words
         self.words = Jotto.getJottoWords()
-        self.allWords = self.words
+        self.allWords = set(self.words)
         self.wordLength = None
         self.keptLetters = set()
         self.removedLetters = set()
-        self.guesses = [] # [(guess1,numMatches1),...]
+        self.guesses = {} # {guess1:numMatches1,...}
 
     @staticmethod
     def getJottoWords():
@@ -47,6 +47,7 @@ class Jotto:
             if len(word) == wordLength:
                 newWords.append(word)
         self.words = set(newWords)
+        self.allWords = set(self.words)
         return
 
     def pickWord(self, word, numMatches):
@@ -95,7 +96,7 @@ class Jotto:
         # By this point we have kept all words that have a combination of valid letters
         # now see if we can remove words by seeing if there are any letters
         # we can figure out
-        self.guesses.append( (word, numMatches) )
+        self.guesses[word] = numMatches
         self.trimLetters()
         return
 
@@ -118,7 +119,7 @@ class Jotto:
         """ Find letters that are either in or not in all remaining words """
         self.updateKeptRemovedLetters()
 
-        for (guess, numMatches) in self.guesses:
+        for guess, numMatches in self.guesses.items():
             lettersInGuess = Jotto.wordToSet(guess)
 
             # letters than are known to be kept
@@ -138,6 +139,39 @@ class Jotto:
             if numLettersNotMatching == self.wordLength - numMatches:
                 lettersToKeep = lettersInGuess - lettersNotMatching
                 self.keepLetters(lettersToKeep)
+
+        # for each pair of guess, see if there are differences between the number of matches
+        # that can tell us if there are letters we should remove or keep
+        for guess1, numMatches1 in self.guesses.items():
+            for guess2, numMatches2 in self.guesses.items():
+                # skip guess if guess is itself
+                if guess1 == guess2:
+                    continue
+
+                # too many possiblities to deal with equal number of matches
+                if numMatches1 == numMatches2:
+                    continue
+
+                letters1 = Jotto.wordToSet(guess1)
+                letters2 = Jotto.wordToSet(guess2)
+                lettersIntersection = letters1.intersection(letters2)
+                numIntersecting = len(lettersIntersection)
+                differenceInMatches = numMatches2 - numMatches1
+
+                # difference in matches + number of intersecting == wordLength
+                # means difference is due to discrepancy in letters that should be kept or removed
+                if numIntersecting == self.wordLength - abs(differenceInMatches):
+                    # keep non-intersecting letters in match 2 and remove non-intersecting letters in match 1
+                    lettersToKeep = None
+                    lettersToRemove = None
+                    if numMatches2 > numMatches1:
+                        lettersToKeep = letters2 - lettersIntersection
+                        lettersToRemove = letters1 - lettersIntersection
+                    else: #numMatches1 > numMatches2
+                        lettersToKeep = letters1 - lettersIntersection
+                        lettersToRemove = letters2 - lettersIntersection
+                    self.keepLetters(lettersToKeep)
+                    self.removeLetters(lettersToRemove)       
         return
             
 
@@ -201,16 +235,99 @@ class Jotto:
             numMoves += 1
             print("Words left: " + str(len(self.words)))
         print("Congratulations. Total moves: " + str(numMoves))
+        return
+
+    def calculateGuess(self, scenario):
+        """ Returns the optimal guess based on a particular scenario
+
+        Parameters:
+        scenario (string): the type of scenario to calculate the optimal guess
+                            must be either "worst" or "average"
+
+        Returns:
+        (string): If scenario is "worst", returns the guess that gives the largest elimination
+                    of jotto words in the worst case number of matches
+                  If scenario is "average", returns the guess that gives the largest elimination
+                    of jotto words in the average case number of matches
+        """
+        # back up rep invariant
+        self.wordsBackup = set(self.words)
+        self.allWordsBackup = set(self.allWords)
+        self.wordLengthBackup = int(self.wordLength)
+        self.keptLettersBackup = set(self.keptLetters)
+        self.removedLettersBackup = set(self.removedLetters)
+        self.guessesBackup = dict(self.guesses) # [(guess1,numMatches1),...]
+
+        
+        numInitialWords = len(self.words)
+        guessesToTry = set()
+        numGuesses = 100
+        for _ in range(numGuesses):
+            guess = self.allWords.pop()
+            if guess in self.guesses: # (word, numMatches)
+                continue
+            else:
+                guessesToTry.add( guess )
+        self.allWords = set(self.allWordsBackup)
+
+        # find word counts for scenario after elimination
+        wordCounts = {} 
+        for word in guessesToTry:
+            
+            workingWordCount = [] # list of word counts after elimination
+            for numMatches in range(0,self.wordLength+1):
+            # restore rep invariant for next trial
+                self.words = set(self.wordsBackup)
+                self.allWords = set(self.allWordsBackup)
+                self.wordLength = int(self.wordLengthBackup)
+                self.keptLetters = set(self.keptLettersBackup)
+                self.removedLetters = set(self.removedLettersBackup)
+                self.guesses = dict(self.guessesBackup) # [(guess1,numMatches1),...]
+                
+                self.pickWord(word, numMatches)
+                numRemainingWords = len(self.words)
+                workingWordCount.append(numRemainingWords)
+                
+            # pick word count based on scenario
+            wordCount = None
+            if scenario == "worst":
+                wordCount = max(workingWordCount)
+            elif scenario == "average":
+                wordCount = int( sum(workingWordCount)/len(workingWordCount) )
+            else:
+                raise ValueError('parameter scenario must be either "worst" or "average"')
+
+            wordCounts[word] = wordCount
+
+        # best guess has lowest word count for scenario after elimination
+        bestGuess = min(wordCounts, key=wordCounts.get)
+
+        # restore rep invariant
+        self.words = set(self.wordsBackup)
+        self.allWords = set(self.allWordsBackup)
+        self.wordLength = int(self.wordLengthBackup)
+        self.keptLetters = set(self.keptLettersBackup)
+        self.removedLetters = set(self.removedLettersBackup)
+        self.guesses = dict(self.guessesBackup) # [(guess1,numMatches1),...]
+        return bestGuess
+            
+        
+            
+            
 
     def takeGuess(self, guess=None):
         """ Takes a guess, returns True if game is over, else returns False """
         
         if guess==None:
             try:
-                guess = self.words.pop()
+                #guess = self.calculateGuess("average")
+                if len(self.words) < 500:
+                    guess = self.calculateGuess("worst")
+                    #guess = self.words.pop()
+                else:
+                    guess = self.words.pop()
             except KeyError: # game over
                 return True
-                
             self.words.add(guess)
 
         print("")
@@ -269,8 +386,8 @@ class Jotto:
                 return self.getNumberOfMatches()
 
             if userInput == "remaining":
-                print("Keep letters: " + str(list(self.keptLetters)))
-                print("Remove letters: " + str(list(self.removedLetters)))
+                print("Keep letters: " + str(sorted(list(self.keptLetters))))
+                print("Remove letters: " + str(sorted(list(self.removedLetters))))
                 print("Words left: " + str(len(self.words)))
                 return self.getNumberOfMatches()
 
